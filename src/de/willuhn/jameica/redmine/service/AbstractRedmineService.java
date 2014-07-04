@@ -16,6 +16,8 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.taskadapter.redmineapi.NotAuthorizedException;
 import com.taskadapter.redmineapi.NotFoundException;
 import com.taskadapter.redmineapi.RedmineAuthenticationException;
@@ -63,6 +65,9 @@ public class AbstractRedmineService
     {
       String url    = this.settings.getUrl();
       String apiKey = this.settings.getApiKey();
+      
+      if (StringUtils.isEmpty(url) || StringUtils.isEmpty(apiKey))
+        throw new ApplicationException(i18n.tr("Bitte geben Sie die URL und Ihren API-Zugriffsschlüssel unter Datei->Einstellungen ein."));
       
       Logger.info("opening connection to: " + url);
       Logger.debug("using API key: " + apiKey);
@@ -336,7 +341,7 @@ public class AbstractRedmineService
     }
     catch (IllegalArgumentException e3)
     {
-      throw new ApplicationException(i18n.tr("Bitte geben Sie die URL des Redmine-Servers in den Einstellungen ein."));
+      throw new ApplicationException(i18n.tr("Bitte geben Sie die URL des Redmine-Servers unter Datei->Einstellungen ein."));
     }
     catch (RedmineAuthenticationException e4)
     {
