@@ -27,6 +27,7 @@ import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.TimeEntry;
 
 import de.willuhn.jameica.gui.GUI;
+import de.willuhn.jameica.gui.internal.action.FileClose;
 import de.willuhn.jameica.gui.util.SWTUtil;
 import de.willuhn.jameica.messaging.Message;
 import de.willuhn.jameica.messaging.MessageConsumer;
@@ -34,11 +35,11 @@ import de.willuhn.jameica.messaging.QueryMessage;
 import de.willuhn.jameica.messaging.StatusBarMessage;
 import de.willuhn.jameica.redmine.Plugin;
 import de.willuhn.jameica.redmine.beans.ProjectTree;
+import de.willuhn.jameica.redmine.gui.dialogs.TimeEntryCommitDialog;
 import de.willuhn.jameica.redmine.service.CachingRedmineService;
 import de.willuhn.jameica.redmine.util.DurationFormatter;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.jameica.system.OperationCanceledException;
-import de.willuhn.jameica.system.Settings;
 import de.willuhn.logging.Logger;
 import de.willuhn.util.ApplicationException;
 import de.willuhn.util.I18N;
@@ -117,7 +118,9 @@ public class SysTray
    */
   public void stop()
   {
-    
+    final TimeEntry current = service.getCurrentTimeEntry();
+    if (current != null)
+      stopCurrentTimeEntry();
   }
   
 
@@ -128,8 +131,6 @@ public class SysTray
   {
     try
     {
-      final TimeEntry current = null; //TODO
-      
       final Menu menu = new Menu(GUI.getShell(), SWT.POP_UP);
 
       ///////////////////////////////////////////////////////////////
@@ -143,7 +144,7 @@ public class SysTray
           try
           {
             if (Application.getCallback().askUser(i18n.tr("Jameica wirklich beenden?")))
-              System.exit(0);
+              new FileClose().handleAction(null);
           }
           catch (OperationCanceledException oce)
           {
@@ -170,18 +171,19 @@ public class SysTray
       ///////////////////////////////////////////////////////////////
       
       ///////////////////////////////////////////////////////////////
-      // aktuellen Job anhalten
+      // Menupunkt zum Anhalten des aktuellen Job anzeigen
+      final TimeEntry current = service.getCurrentTimeEntry();
       if (current != null)
       {
         new MenuItem(menu, SWT.SEPARATOR);
         MenuItem stop = new MenuItem(menu, SWT.PUSH);
-//        stop.setText(i18n.tr("Aufgabe anhalten: [{0}] {1}",new String[]{format.format(new Integer(current.getDuration())),current.getName()}));
-        stop.setText(i18n.tr("Aufgabe anhalten"));
+        stop.setText(i18n.tr("Aufgabe anhalten: [{0}] {1}",format.format(current),current.getComment()));
         stop.addListener(SWT.Selection, new Listener()
         {
           public void handleEvent (Event e)
           {
-            stopJob(current);
+            stopCurrentTimeEntry();
+            refresh();
             menu.setVisible(false);
             menu.dispose();
           }
@@ -219,7 +221,7 @@ public class SysTray
    * @param menu das Hauptmenu.
    * @throws ApplicationException
    */
-  private void createMenu(ProjectTree p, Menu menu) throws ApplicationException
+  private void createMenu(ProjectTree p, final Menu menu) throws ApplicationException
   {
     List<ProjectTree> children = p.getChildren();
     List<Issue> issues = service.getIssues(p.getProject());
@@ -241,63 +243,48 @@ public class SysTray
     }
     
     // Jetzt die Issues.
-    for (Issue i:issues)
+    for (final Issue i:issues)
     {
       final MenuItem mi = new MenuItem(sub,SWT.PUSH);
       mi.setData(i);
       mi.setText("#" + i.getId() + " " + i.getSubject());
-//      mi.addListener(SWT.Selection, new Listener()
-//      {
-//        public void handleEvent (Event e)
-//        {
+      mi.addListener(SWT.Selection, new Listener()
+      {
+        public void handleEvent (Event e)
+        {
           // Erst den alten Job ggf. stoppen
-//          if (stopJob(current))
-//          {
+          if (stopCurrentTimeEntry())
+          {
             // Jetzt einen neuen Job anlegen
-//              try
-//              {
-              // TODO Job starten
-              // new JobStart().handleAction(current);
-//              refresh();
-//              }
-//              catch (ApplicationException ae)
-//              {
-//                Application.getMessagingFactory().sendMessage(new StatusBarMessage(ae.getMessage(),StatusBarMessage.TYPE_ERROR));
-//              }
-//          }
-//          menu.setVisible(false);
-//          menu.dispose();
-//        }
-//      });
+            startTimeEntry(i);
+            refresh();
+          }
+          menu.setVisible(false);
+          menu.dispose();
+        }
+      });
     }
   }
 
   /**
    * Stoppt den uebergebenen Task.
    * @param current der zu stoppende Job.
-   * @return true, wenn der Job gestoppt wurde.
+   * @return true, wenn der Job gestoppt wurde oder wenn kein zu stoppender existierte.
    */
-  private boolean stopJob(TimeEntry current)
+  private synchronized boolean stopCurrentTimeEntry()
   {
+    final TimeEntry current = service.getCurrentTimeEntry();
+
+    if (current == null)
+      return true;
+    
     try
     {
-      if (current != null)
-      {
-        Settings settings = Application.getPluginLoader().getPlugin(Plugin.class).getResources().getSettings();
-        if (settings.getBoolean("job.enterdescription",true))
-        {
-          String text = current.getComment();
-          if (text == null || text.length() == 0)
-          {
-            // text = Application.getCallback().askUser(i18n.tr("Bitte geben Sie einen Kommentar ein.\nAufgabe: [{0}] {1}", new String[]{format.format(new Integer(current.getDuration())),current.getName()}),i18n.tr("Kommentar"));
-            text = Application.getCallback().askUser(i18n.tr("Bitte geben Sie einen Kommentar ein."),i18n.tr("Kommentar"));
-          }
-          current.setComment(text);
-        }
-        
-        // TODO: Job stoppen
-        // new JobStop().handleAction(current);
-      }
+      TimeEntryCommitDialog d = new TimeEntryCommitDialog(current);
+      d.open();
+      service.commitCurrentTimeEntry();
+      
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage("Erfasste Stunden übernommen",StatusBarMessage.TYPE_SUCCESS));
       return true;
     }
     catch (OperationCanceledException oce)
@@ -310,10 +297,26 @@ public class SysTray
     }
     catch (Exception e)
     {
-      Logger.error("unable to stop job",e);
-      Application.getMessagingFactory().sendMessage(new StatusBarMessage(i18n.tr("Fehler beim Stoppen der Zeiterfassung"),StatusBarMessage.TYPE_ERROR));
+      Logger.error("unable to stop time entry",e);
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage(i18n.tr("Stoppen der Zeiterfassung fehlgeschlagen: {0}",e.getMessage()),StatusBarMessage.TYPE_ERROR));
     }
     return false;
+  }
+  
+  /**
+   * Startet einen neuen Zeiterfassungsjob fuer das ausgewaehlte Issue.
+   * @param issue
+   */
+  private synchronized void startTimeEntry(Issue issue)
+  {
+    try
+    {
+      service.createTimeEntry(issue);
+    }
+    catch (ApplicationException ae)
+    {
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage(ae.getMessage(),StatusBarMessage.TYPE_ERROR));
+    }
   }
   
   /**
@@ -327,27 +330,24 @@ public class SysTray
       {
         try
         {
-//          User user = SystemMessageConsumer.getCurrentUser();
           ClassLoader cl = Application.getPluginLoader().getManifest(Plugin.class).getClassLoader();
-//          Job currentJob = user.getCurrentJob();
-//          if (currentJob != null)
-//          {
-//            item.setToolTipText(i18n.tr("[{0}] {1}",new String[]{format.format(new Integer(currentJob.getDuration())),currentJob.getName()}));
-            item.setToolTipText("foo");
+          TimeEntry current = service.getCurrentTimeEntry();
+          if (current != null)
+          {
+            item.setToolTipText(i18n.tr("[{0}] {1}",new String[]{format.format(current),current.getComment()}));
             item.setImage(SWTUtil.getImage("work.png",cl));
-//          }
-//          else
-//          {
-//            item.setToolTipText("Keine laufende Aufgabe");
-//            item.setImage(SWTUtil.getImage("clock.png",cl));
-//          }
+          }
+          else
+          {
+            item.setToolTipText("Keine laufende Zeiterfassung");
+            item.setImage(SWTUtil.getImage("clock.png",cl));
+          }
         }
         catch (Exception e)
         {
           Logger.error("unable to refresh icon",e);
         }
       }
-    
     });
   }
 

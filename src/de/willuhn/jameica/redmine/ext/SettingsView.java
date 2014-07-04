@@ -95,8 +95,9 @@ public class SettingsView implements Extension
       
         public void widgetDisposed(DisposeEvent e)
         {
-          url    = null;
-          apiKey = null;
+          url      = null;
+          apiKey   = null;
+          interval = null;
           Application.getMessagingFactory().unRegisterMessageConsumer(mc);
         }
       

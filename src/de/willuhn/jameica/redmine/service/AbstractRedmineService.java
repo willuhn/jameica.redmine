@@ -9,6 +9,7 @@ package de.willuhn.jameica.redmine.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,8 @@ import com.taskadapter.redmineapi.RedmineTransportException;
 import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.Membership;
 import com.taskadapter.redmineapi.bean.Project;
+import com.taskadapter.redmineapi.bean.TimeEntry;
+import com.taskadapter.redmineapi.bean.TimeEntryActivity;
 import com.taskadapter.redmineapi.bean.User;
 
 import de.willuhn.jameica.redmine.Plugin;
@@ -47,7 +50,7 @@ public class AbstractRedmineService
   
   private RedmineManager manager = null;
   private User currentUser = null;
-  private Issue currentIssue = null;
+  private TimeEntry currentEntry = null;
   
   /**
    * Liefert den Redmine-Manager.
@@ -183,23 +186,94 @@ public class AbstractRedmineService
   }
   
   /**
-   * Liefert das aktuell laufende Issue.
-   * @return das aktuell laufende Issue.
+   * Liefert die verfuegbaren Aktivitaeten fuer die Zeiterfassung.
+   * @return die verfuegbaren Aktivitaeten fuer die Zeiterfassung.
+   * @throws ApplicationException
    */
-  public Issue getCurrentIssue()
+  public List<TimeEntryActivity> getActivities() throws ApplicationException
   {
-    return currentIssue;
+    try
+    {
+      Logger.info("fetching time-entry activities");
+      List<TimeEntryActivity> activities = this.getManager().getTimeEntryActivities();
+      return activities;
+    }
+    catch (RedmineException re)
+    {
+      handleRedmineException(re,i18n.tr("Abruf der verfügbaren Aktivitäten fehlgeschlagen"));
+      return null; // cannot happen
+    }
+  }
+  
+  /**
+   * Liefert den aktuellen Zeiterfassungsjob.
+   * @return der aktuelle Zeiterfassungsjob.
+   */
+  public TimeEntry getCurrentTimeEntry()
+  {
+    return this.currentEntry;
   }
 
   /**
-   * Speichert das aktuell laufende Issue.
-   * @param currentIssue das aktuell laufende Issue.
+   * Startet eine neue Zeiterfassung auf dem Issue.
+   * @param issue das Issue.
+   * @return der erstellte Zeiterfassungsjob.
+   * @throws ApplicationException
    */
-  public void setCurrentIssue(Issue currentIssue)
+  public TimeEntry createTimeEntry(Issue issue) throws ApplicationException
   {
-    this.currentIssue = currentIssue;
-  }
+    if (this.currentEntry != null)
+      throw new ApplicationException(i18n.tr("Derzeit läuft bereits eine Zeiterfassung für die Aufgabe \"{0}\"",this.currentEntry.getComment()));
+    
+    Logger.info("creating new time entry for issue #" + issue.getId());
 
+    Date now = new Date();
+    
+    this.currentEntry = new TimeEntry();
+    this.currentEntry.setProjectId(issue.getProject().getId());
+    this.currentEntry.setIssueId(issue.getId());
+    this.currentEntry.setComment("#" + issue.getId() + " " + issue.getSubject());
+    this.currentEntry.setCreatedOn(now);
+    this.currentEntry.setSpentOn(now);
+    this.currentEntry.setUserId(this.getCurrentUser().getId());
+    return this.currentEntry;
+  }
+  
+  /**
+   * Schliesst die Zeiterfassung fuer die laufende Aufgabe ab.
+   * Das Attribut "activity" vom Aufrufer vorher gesetzt worden sein.
+   * @throws ApplicationException
+   */
+  public synchronized void commitCurrentTimeEntry() throws ApplicationException
+  {
+    if (this.currentEntry == null)
+      throw new ApplicationException(i18n.tr("Derzeit läuft keine eine Zeiterfassung"));
+    
+    if (this.currentEntry.getActivityId() == null)
+      throw new ApplicationException(i18n.tr("Keine Aktivität ausgewählt"));
+    
+    try
+    {
+      // 1. "hours" errechnen
+      long now      = System.currentTimeMillis();
+      long started  = this.currentEntry.getCreatedOn().getTime();
+      float minutes = (now - started) / 1000 / 60;
+      float hours   = minutes / 60;
+      this.currentEntry.setHours(hours);
+
+      Logger.info("committing current time entry for issue #" + this.currentEntry.getIssueId() + ", used time: " + minutes + " minutes (" + hours + " hours)");
+
+      // 2. Speichern
+      this.getManager().createTimeEntry(this.currentEntry);
+      Logger.info("time entry for issue #" + this.currentEntry.getIssueId() + " committed");
+      this.currentEntry = null; // Nicht im finally damit das nur passiert, wenn das commit geklappt hat
+    }
+    catch (RedmineException re)
+    {
+      handleRedmineException(re,i18n.tr("Übernehmen der erfassten Arbeitszeit fehlgeschlagen: {0}",re.getMessage()));
+    }
+  }
+  
   /**
    * Liefert eine Liste der Projekte, auf die der User Zugriff hat.
    * @return die Liste der Projekte, auf die der User Zugriff hat.

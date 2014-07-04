@@ -13,6 +13,7 @@ import java.util.Map;
 
 import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.Project;
+import com.taskadapter.redmineapi.bean.TimeEntryActivity;
 
 import de.willuhn.annotation.Lifecycle;
 import de.willuhn.annotation.Lifecycle.Type;
@@ -30,6 +31,7 @@ public class CachingRedmineService extends AbstractRedmineService
 {
   private Object lock = new Object();
   private List<ProjectTree> projects = null;
+  private List<TimeEntryActivity> activities = null;
   private Map<Integer,List<Issue>> issues = new HashMap<Integer,List<Issue>>();
   
   /**
@@ -66,6 +68,21 @@ public class CachingRedmineService extends AbstractRedmineService
   }
   
   /**
+   * @see de.willuhn.jameica.redmine.service.AbstractRedmineService#getActivities()
+   */
+  @Override
+  public List<TimeEntryActivity> getActivities() throws ApplicationException
+  {
+    synchronized (lock)
+    {
+      if (this.activities == null)
+        this.activities = super.getActivities();
+      
+      return this.activities;
+    }
+  }
+  
+  /**
    * @see de.willuhn.jameica.redmine.service.AbstractRedmineService#reconnect()
    */
   @Override
@@ -83,6 +100,7 @@ public class CachingRedmineService extends AbstractRedmineService
       
       try
       {
+        this.getActivities();
         this.projects = this.getProjects();
         for (ProjectTree p:this.projects)
         {

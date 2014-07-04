@@ -51,7 +51,7 @@ public class ReloadService implements Service
     int minutes = this.settings.getCacheReloadInterval();
     Logger.info("reloading cache every " + minutes + " minutes");
     this.task = new Task();
-    this.timer.schedule(this.task,4 * 1000L,minutes * 60 * 1000L);
+    this.timer.schedule(this.task,100L,minutes * 60 * 1000L);
   }
   
   /**
