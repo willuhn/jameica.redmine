@@ -113,8 +113,8 @@ public class SettingsView implements Extension
       InfoPanel panel = new InfoPanel();
       panel.setTitle(i18n.tr("Hinweis"));
       panel.setIcon("gtk-info.png");
-      panel.setText(i18n.tr("Sie finden Ihren persönlichen API-Zugriffsschlüssel in Redmine unter \"Mein Konto\" " +
-      		                  "in der rechten Spalte. Klicken Sie unter \"API-Zugriffsschlüssel\" auf \"Anzeigen\" " +
+      panel.setText(i18n.tr("Sie finden Ihren persönlichen API-Zugriffsschlüssel in Redmine unter \"Mein Konto\"\n" +
+      		                  "in der rechten Spalte. Klicken Sie unter \"API-Zugriffsschlüssel\" auf \"Anzeigen\"\n" +
       		                  "und kopieren Sie die vollständige Zeichenfolge in das Eingabefeld."));
       tab.addPart(panel);
     }
