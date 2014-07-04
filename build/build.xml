@@ -38,6 +38,7 @@
 
 		<property name="src.dir" 					      value="src" />
 		<property name="lang.dir" 					    value="${src.dir}/lang" />
+    <property name="img.dir"                value="${src.dir}/img" />
 		<property name="lib.dir" 					      value="lib" />
 		<property name="class.dir" 					    value="${project.tmp}/bin" />
 
@@ -62,6 +63,9 @@
 		       encoding="${define.encoding}" deprecation="true" destdir="${class.dir}" srcdir="${src.dir}">
 			<classpath refid="compilepath" />
 		</javac>
+    <copy todir="${class.dir}/img">
+      <fileset dir="${img.dir}" />
+    </copy>
 	</target>
 
   
