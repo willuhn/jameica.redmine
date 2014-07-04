@@ -34,7 +34,7 @@ import de.willuhn.jameica.messaging.QueryMessage;
 import de.willuhn.jameica.messaging.StatusBarMessage;
 import de.willuhn.jameica.redmine.Plugin;
 import de.willuhn.jameica.redmine.beans.ProjectTree;
-import de.willuhn.jameica.redmine.service.RedmineService;
+import de.willuhn.jameica.redmine.service.CachingRedmineService;
 import de.willuhn.jameica.redmine.util.DurationFormatter;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.jameica.system.OperationCanceledException;
@@ -51,7 +51,7 @@ public class SysTray
   private final static I18N i18n = Application.getPluginLoader().getPlugin(Plugin.class).getResources().getI18N();
   
   @Resource
-  private RedmineService service;
+  private CachingRedmineService service;
   
   private final static DurationFormatter format = new DurationFormatter();
   private static TrayItem item = null;
@@ -191,6 +191,21 @@ public class SysTray
       
       // Menu anzeigen
       menu.setVisible(true);
+    }
+    catch (ApplicationException ae)
+    {
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage(ae.getMessage(),StatusBarMessage.TYPE_ERROR));
+      if (GUI.getShell().getMinimized())
+      {
+        try
+        {
+          Application.getCallback().notifyUser(ae.getMessage());
+        }
+        catch (Exception e)
+        {
+          Logger.error("unable to notify user",e);
+        }
+      }
     }
     catch (Exception e)
     {

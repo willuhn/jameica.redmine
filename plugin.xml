@@ -17,7 +17,9 @@
     <include>.*\.class</include>
   </classfinder>
 
-  <services />
+  <services>
+    <service name="reload-service" class="de.willuhn.jameica.redmine.service.ReloadService" />
+  </services>
   
   <extensions>
     <extension class="de.willuhn.jameica.redmine.ext.SettingsView"

@@ -78,6 +78,27 @@ public class Settings
   }
   
   /**
+   * Liefert das Intervall in Minuten, nach denen der Cache neu geladen wird.
+   * @return das Intervall in Minuten, nach denen der Cache neu geladen wird.
+   */
+  public int getCacheReloadInterval()
+  {
+    return this.getSettings().getInt("cache.reload.minutes",5);
+  }
+  
+  /**
+   * Speichert das Intervall in Minuten, nach denen der Cache neu geladen wird.
+   * @param minutes das Intervall in Minuten, nach denen der Cache neu geladen wird.
+   * @throws ApplicationException
+   */
+  public void setCacheReloadInterval(int minutes) throws ApplicationException
+  {
+    if (minutes < 1)
+      throw new ApplicationException(i18n.tr("Ungültiges Reload-Intervall."));
+    this.getSettings().setAttribute("cache.reload.minutes",minutes);
+  }
+  
+  /**
    * Liefert den Settings-Container.
    * @return der Settings-Container.
    */

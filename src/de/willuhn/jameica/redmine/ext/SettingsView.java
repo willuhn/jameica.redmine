@@ -14,6 +14,7 @@ import org.eclipse.swt.events.DisposeListener;
 
 import de.willuhn.jameica.gui.extension.Extendable;
 import de.willuhn.jameica.gui.extension.Extension;
+import de.willuhn.jameica.gui.input.SpinnerInput;
 import de.willuhn.jameica.gui.input.TextInput;
 import de.willuhn.jameica.gui.internal.views.Settings;
 import de.willuhn.jameica.gui.parts.InfoPanel;
@@ -40,8 +41,9 @@ public class SettingsView implements Extension
 
   private MessageConsumer mc = null;
 
-  private TextInput url      = null;
-  private TextInput apiKey   = null;
+  private TextInput url         = null;
+  private TextInput apiKey      = null;
+  private SpinnerInput interval = null;
   
   /**
    * @see de.willuhn.jameica.gui.extension.Extension#extend(de.willuhn.jameica.gui.extension.Extendable)
@@ -103,6 +105,8 @@ public class SettingsView implements Extension
       tab.addHeadline(i18n.tr("Zugangsdaten des Redmine-Servers"));
       tab.addInput(this.getUrl());
       tab.addInput(this.getApiKey());
+      tab.addHeadline(i18n.tr("Verbindungseinstellungen"));
+      tab.addInput(this.getInterval());
       tab.addSeparator();
       
       InfoPanel panel = new InfoPanel();
@@ -155,6 +159,17 @@ public class SettingsView implements Extension
     this.apiKey.setMandatory(true);
     return this.apiKey;
   }
+  
+  private SpinnerInput getInterval() throws ApplicationException
+  {
+    if (this.interval != null)
+      return this.interval;
+    
+    this.interval = new SpinnerInput(1,60,this.settings.getCacheReloadInterval());
+    this.interval.setName(i18n.tr("Zwischengespeicherte Daten neu laden nach jeweils"));
+    this.interval.setComment(i18n.tr("Minuten"));
+    return this.interval;
+  }
 
   /**
    * Speichert die Einstellungen.
@@ -165,9 +180,11 @@ public class SettingsView implements Extension
     {
       String url    = (String) this.getUrl().getValue();
       String apiKey = (String) this.getApiKey().getValue();
+      Integer i     = (Integer) this.getInterval().getValue();
 
       this.settings.setUrl(url);
       this.settings.setApiKey(apiKey);
+      this.settings.setCacheReloadInterval(i.intValue());
     }
     catch (ApplicationException ae)
     {

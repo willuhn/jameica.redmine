@@ -16,15 +16,16 @@ import java.util.Map;
 import javax.annotation.Resource;
 
 import com.taskadapter.redmineapi.NotAuthorizedException;
+import com.taskadapter.redmineapi.NotFoundException;
+import com.taskadapter.redmineapi.RedmineAuthenticationException;
 import com.taskadapter.redmineapi.RedmineException;
 import com.taskadapter.redmineapi.RedmineManager;
+import com.taskadapter.redmineapi.RedmineTransportException;
 import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.Membership;
 import com.taskadapter.redmineapi.bean.Project;
 import com.taskadapter.redmineapi.bean.User;
 
-import de.willuhn.annotation.Lifecycle;
-import de.willuhn.annotation.Lifecycle.Type;
 import de.willuhn.jameica.redmine.Plugin;
 import de.willuhn.jameica.redmine.Settings;
 import de.willuhn.jameica.redmine.beans.ProjectTree;
@@ -35,10 +36,9 @@ import de.willuhn.util.ApplicationException;
 import de.willuhn.util.I18N;
 
 /**
- * Bean, die den Zugriff auf die Redmine-API bereitstellt.
+ * Abstrakter Basis-Service, der den Zugriff auf die Redmine-API bereitstellt.
  */
-@Lifecycle(Type.CONTEXT)
-public class RedmineService
+public class AbstractRedmineService
 {
   private final static I18N i18n = Application.getPluginLoader().getPlugin(Plugin.class).getResources().getI18N();
   
@@ -70,6 +70,18 @@ public class RedmineService
   }
   
   /**
+   * Verwirft den aktuellen Redmine-Manager und forciert damit einen neuen Verbindungsaufbau.
+   */
+  public void reconnect()
+  {
+    if (this.manager != null)
+    {
+      Logger.info("discarding current redmine manager, results in server reconnect");
+      this.manager = null;
+    }
+  }
+  
+  /**
    * Liefert den aktuell angemeldeten Benutzer.
    * @return der aktuell angemeldete Benutzer.
    * @throws ApplicationException
@@ -85,8 +97,8 @@ public class RedmineService
       }
       catch (RedmineException re)
       {
-        Logger.error("unable to fetch current currentUser",re);
-        throw new ApplicationException(i18n.tr("Aktueller User nicht ermittelbar: {0}",re.getMessage()));
+        handleRedmineException(re,i18n.tr("Aktueller User nicht ermittelbar: {0}",re.getMessage()));
+        return null; // cannot happen
       }
     }
     return this.currentUser;
@@ -165,8 +177,8 @@ public class RedmineService
     }
     catch (RedmineException re)
     {
-      Logger.error("unable to fetch issue list for project " + project.getIdentifier(),re);
-      throw new ApplicationException(i18n.tr("Ticket-Abruf fehlgeschlagen für Projekt \"{0}\": {1}",project.getIdentifier(),re.getMessage()));
+      handleRedmineException(re,i18n.tr("Ticket-Abruf fehlgeschlagen für Projekt \"{0}\": {1}",project.getIdentifier(),re.getMessage()));
+      return null; // cannot happen
     }
   }
   
@@ -221,9 +233,47 @@ public class RedmineService
     }
     catch (RedmineException re)
     {
-      Logger.error("unable to fetch project list",re);
-      throw new ApplicationException(i18n.tr("Projekt-Liste kann nicht abgerufen werden: {0}",re.getMessage()));
+      handleRedmineException(re,i18n.tr("Projekt-Liste kann nicht abgerufen werden: {0}",re.getMessage()));
+      return null; // cannot happen
     }
+  }
+  
+  /**
+   * Fuehrt die Fehlerbehandlung durch.
+   * @param e die Exception von Redmine.
+   * @param message die dem User alternativ anzuzeigende Fehlermeldung.
+   * @throws ApplicationException
+   */
+  private void handleRedmineException(RedmineException e, String message) throws ApplicationException
+  {
+    Logger.error("exception occured during redmine access",e);
+    
+    try
+    {
+      throw e;
+    }
+    catch (NotFoundException e1)
+    {
+      throw new ApplicationException(i18n.tr("Redmine Server-URL scheint ungültig zu sein"));
+    }
+    catch (RedmineTransportException e2)
+    {
+      throw new ApplicationException(i18n.tr("Hostname des Redmine-Servers scheint falsch zu sein oder Server nicht erreichbar."));
+    }
+    catch (IllegalArgumentException e3)
+    {
+      throw new ApplicationException(i18n.tr("Bitte geben Sie die URL des Redmine-Servers in den Einstellungen ein."));
+    }
+    catch (RedmineAuthenticationException e4)
+    {
+      throw new ApplicationException(i18n.tr("API-Zugangsschlüssel fehlt oder ungültig."));
+    }
+    catch (RedmineException re)
+    {
+      // Hierfuer haben wir keine gesonderte Behandlung. Daher die Default-Fehlermeldung und Logging oben.
+    }
+    
+    throw new ApplicationException(message);
   }
   
 }
