@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<plugin name="jameica.redmine" version="1.0.0" class="de.willuhn.jameica.redmine.Plugin"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:noNamespaceSchemaLocation="http://www.willuhn.de/schema/jameica-plugin-1.0.xsd">
+
+  <description>Redmine-Integration für Jameica</description>
+  <url>https://www.willuhn.de/products/jameica/releases/nightly/jameica.redmine-1.0.0-nightly.zip</url>
+  <homepage>http://www.willuhn.de/products/jameica</homepage>
+  <license>GPL - http://www.gnu.org/copyleft/gpl.html</license>
+
+  <requires jameica="2.6.0+">
+  </requires>
+
+  <classfinder>
+    <include>jameica\.redmine\.jar</include>
+    <include>.*\.class</include>
+  </classfinder>
+
+  <services />
+  
+  <extensions>
+    <extension class="de.willuhn.jameica.redmine.ext.SettingsView"
+             extends="de.willuhn.jameica.gui.internal.views.Settings"/>
+  </extensions>
+  
+</plugin>
+
