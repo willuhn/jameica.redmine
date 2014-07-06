@@ -26,6 +26,8 @@ import org.eclipse.swt.widgets.TrayItem;
 import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.TimeEntry;
 
+import de.willuhn.annotation.Lifecycle;
+import de.willuhn.annotation.Lifecycle.Type;
 import de.willuhn.jameica.gui.GUI;
 import de.willuhn.jameica.gui.internal.action.FileClose;
 import de.willuhn.jameica.gui.util.SWTUtil;
@@ -47,15 +49,17 @@ import de.willuhn.util.I18N;
 /**
  * Zeigt das Systray an.
  */
+@Lifecycle(Type.CONTEXT)
 public class SysTray
 {
   private final static I18N i18n = Application.getPluginLoader().getPlugin(Plugin.class).getResources().getI18N();
   
+  private final static DurationFormatter format = new DurationFormatter();
+  
   @Resource
   private CachingRedmineService service;
   
-  private final static DurationFormatter format = new DurationFormatter();
-  private static TrayItem item = null;
+  private TrayItem item = null;
 
   /**
    * Startet das Systray.
@@ -131,6 +135,8 @@ public class SysTray
   {
     try
     {
+      List<ProjectTree> projects = service.getProjects();
+
       final Menu menu = new Menu(GUI.getShell(), SWT.POP_UP);
 
       ///////////////////////////////////////////////////////////////
@@ -156,40 +162,53 @@ public class SysTray
           }
         }
       });
+      //
       ///////////////////////////////////////////////////////////////
 
       new MenuItem(menu, SWT.SEPARATOR);
-      ///////////////////////////////////////////////////////////////
-      // Liste der verfuegbaren Tasks
-      
-      List<ProjectTree> projects = service.getProjects();
-      
-      for (ProjectTree p:projects)
+
+      if (projects.size() == 0)
       {
-        createMenu(p,menu);
+        ///////////////////////////////////////////////////////////////
+        // Platzhalter falls die Projekte noch nicht geladen wurden
+        MenuItem loading = new MenuItem(menu, SWT.PUSH);
+        loading.setText(i18n.tr("Projekte werden geladen..."));
+        //
+        ///////////////////////////////////////////////////////////////
       }
-      ///////////////////////////////////////////////////////////////
-      
-      ///////////////////////////////////////////////////////////////
-      // Menupunkt zum Anhalten des aktuellen Job anzeigen
-      final TimeEntry current = service.getCurrentTimeEntry();
-      if (current != null)
+      else
       {
-        new MenuItem(menu, SWT.SEPARATOR);
-        MenuItem stop = new MenuItem(menu, SWT.PUSH);
-        stop.setText(i18n.tr("Aufgabe anhalten: [{0}] {1}",format.format(current),current.getComment()));
-        stop.addListener(SWT.Selection, new Listener()
+        ///////////////////////////////////////////////////////////////
+        // Liste der Projekte
+        for (ProjectTree p:projects)
         {
-          public void handleEvent (Event e)
+          createMenu(p,menu);
+        }
+        //
+        ///////////////////////////////////////////////////////////////
+        
+        ///////////////////////////////////////////////////////////////
+        // Menupunkt zum Anhalten des aktuellen Job anzeigen
+        final TimeEntry current = service.getCurrentTimeEntry();
+        if (current != null)
+        {
+          new MenuItem(menu, SWT.SEPARATOR);
+          MenuItem stop = new MenuItem(menu, SWT.PUSH);
+          stop.setText(i18n.tr("Aufgabe anhalten: [{0}] {1}",format.format(current),current.getComment()));
+          stop.addListener(SWT.Selection, new Listener()
           {
-            stopCurrentTimeEntry();
-            refresh();
-            menu.setVisible(false);
-            menu.dispose();
-          }
-        });
+            public void handleEvent (Event e)
+            {
+              stopCurrentTimeEntry();
+              refresh();
+              menu.setVisible(false);
+              menu.dispose();
+            }
+          });
+        }
+        //
+        ///////////////////////////////////////////////////////////////
       }
-      ///////////////////////////////////////////////////////////////
       
       // Menu anzeigen
       menu.setVisible(true);
@@ -227,7 +246,7 @@ public class SysTray
     List<Issue> issues = service.getIssues(p.getProject());
     
     // Das Projekt ist leer. Nicht anzeigen
-    if (issues.size() == 0 && children.size() == 0)
+    if (issues == null || issues.size() == 0 && children.size() == 0)
       return;
 
     MenuItem pm = new MenuItem(menu,SWT.CASCADE);
@@ -265,7 +284,7 @@ public class SysTray
       });
     }
   }
-
+  
   /**
    * Stoppt den uebergebenen Task.
    * @param current der zu stoppende Job.

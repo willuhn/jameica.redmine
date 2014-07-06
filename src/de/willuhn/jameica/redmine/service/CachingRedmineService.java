@@ -7,6 +7,7 @@
 
 package de.willuhn.jameica.redmine.service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,8 +31,9 @@ import de.willuhn.util.ApplicationException;
 public class CachingRedmineService extends AbstractRedmineService
 {
   private Object lock = new Object();
-  private List<ProjectTree> projects = null;
-  private List<TimeEntryActivity> activities = null;
+  // Mit leeren Listen/Maps initialisieren
+  private List<ProjectTree> projects = new ArrayList<ProjectTree>();
+  private List<TimeEntryActivity> activities = new ArrayList<TimeEntryActivity>();
   private Map<Integer,List<Issue>> issues = new HashMap<Integer,List<Issue>>();
   
   /**
@@ -40,11 +42,9 @@ public class CachingRedmineService extends AbstractRedmineService
   @Override
   public List<ProjectTree> getProjects() throws ApplicationException
   {
+    // Wir liefern hier generell nur gecachten Daten zurueck
     synchronized (lock)
     {
-      if (this.projects == null)
-        this.projects = super.getProjects();
-      
       return this.projects;
     }
   }
@@ -55,15 +55,10 @@ public class CachingRedmineService extends AbstractRedmineService
   @Override
   public List<Issue> getIssues(Project project) throws ApplicationException
   {
+    // Wir liefern hier generell nur gecachten Daten zurueck
     synchronized (lock)
     {
-      List<Issue> list = this.issues.get(project.getId());
-      if (list == null)
-      {
-        list = super.getIssues(project);
-        this.issues.put(project.getId(),list);
-      }
-      return list;
+      return this.issues.get(project.getId());
     }
   }
   
@@ -73,11 +68,9 @@ public class CachingRedmineService extends AbstractRedmineService
   @Override
   public List<TimeEntryActivity> getActivities() throws ApplicationException
   {
+    // Wir liefern hier generell nur gecachten Daten zurueck
     synchronized (lock)
     {
-      if (this.activities == null)
-        this.activities = super.getActivities();
-      
       return this.activities;
     }
   }
@@ -88,51 +81,60 @@ public class CachingRedmineService extends AbstractRedmineService
   @Override
   public void reconnect()
   {
+    // Wir laden die Daten erstmal komplett neu, ohne die GUI zu blockieren und
+    // uebernehmen die Daten dann en bloc
     super.reconnect();
 
-    synchronized (lock)
+    long started = System.currentTimeMillis();
+    Logger.info("refreshing cache");
+    
+    try
     {
-      long started = System.currentTimeMillis();
-      Logger.info("refreshing cache");
+      // 1. Projekte
+      List<ProjectTree> newProjects = super.getProjects();
       
-      this.projects = null;
-      this.issues.clear();
+      // 2. Activities
+      List<TimeEntryActivity> newActivities = super.getActivities();
       
-      try
+      // 3. Issues
+      Map<Integer,List<Issue>> newIssues = new HashMap<Integer,List<Issue>>();
+      for (ProjectTree p:newProjects)
       {
-        this.getActivities();
-        this.projects = this.getProjects();
-        for (ProjectTree p:this.projects)
-        {
-          this.reloadIssues(p);
-        }
-        
-        Logger.info("refreshing finished, took " + ((System.currentTimeMillis() - started) / 1000) + " seconds");
+        this.reloadIssues(p,newIssues);
       }
-      catch (ApplicationException ae)
+      
+      // Und jetzt alles am Stueck uebernehmen
+      synchronized (lock)
       {
-        Application.getMessagingFactory().sendMessage(new StatusBarMessage(ae.getMessage(),StatusBarMessage.TYPE_ERROR));
+        this.projects = newProjects;
+        this.activities = newActivities;
+        this.issues = newIssues;
       }
+      
+      Logger.info("refreshing finished, loaded " + + this.issues.size() + " projects, took " + ((System.currentTimeMillis() - started) / 1000) + " seconds");
+    }
+    catch (ApplicationException ae)
+    {
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage(ae.getMessage(),StatusBarMessage.TYPE_ERROR));
     }
   }
   
   /**
    * Fuehrt ein rekursives Reload der Issues in dem Project-Baum durch.
    * @param p der Projekt-Baum.
+   * @param newIssues die neue Map mit den Issues.
    * @throws ApplicationException
    */
-  private void reloadIssues(ProjectTree p) throws ApplicationException
+  private void reloadIssues(ProjectTree p, Map<Integer,List<Issue>> newIssues) throws ApplicationException
   {
-    synchronized (lock)
+    // Das Projekt selbst
+    Project project = p.getProject();
+    newIssues.put(project.getId(),super.getIssues(project));
+    
+    // Jetzt die Kinder
+    for (ProjectTree child:p.getChildren())
     {
-      // Das Projekt selbst
-      this.getIssues(p.getProject());
-      
-      // Jetzt die Kinder
-      for (ProjectTree child:p.getChildren())
-      {
-        this.reloadIssues(child);
-      }
+      this.reloadIssues(child,newIssues);
     }
   }
 }
