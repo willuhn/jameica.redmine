@@ -35,6 +35,7 @@ import de.willuhn.jameica.messaging.Message;
 import de.willuhn.jameica.messaging.MessageConsumer;
 import de.willuhn.jameica.messaging.QueryMessage;
 import de.willuhn.jameica.messaging.StatusBarMessage;
+import de.willuhn.jameica.redmine.DismissTimeEntryException;
 import de.willuhn.jameica.redmine.Plugin;
 import de.willuhn.jameica.redmine.beans.ProjectTree;
 import de.willuhn.jameica.redmine.gui.dialogs.TimeEntryCommitDialog;
@@ -304,6 +305,12 @@ public class SysTray
       service.commitCurrentTimeEntry();
       
       Application.getMessagingFactory().sendMessage(new StatusBarMessage("Erfasste Stunden übernommen",StatusBarMessage.TYPE_SUCCESS));
+      return true;
+    }
+    catch (DismissTimeEntryException de)
+    {
+      Application.getMessagingFactory().sendMessage(new StatusBarMessage(de.getMessage(),StatusBarMessage.TYPE_INFO));
+      service.dismissCurrentTimeEntry();
       return true;
     }
     catch (OperationCanceledException oce)

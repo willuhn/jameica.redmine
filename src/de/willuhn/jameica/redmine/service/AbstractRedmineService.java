@@ -280,6 +280,14 @@ public class AbstractRedmineService
   }
   
   /**
+   * Verwirft die aktuell laufende Zeiterfassung.
+   */
+  public void dismissCurrentTimeEntry()
+  {
+    this.currentEntry = null;
+  }
+  
+  /**
    * Liefert eine Liste der Projekte, auf die der User Zugriff hat.
    * @return die Liste der Projekte, auf die der User Zugriff hat.
    * @throws ApplicationException

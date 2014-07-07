@@ -23,12 +23,14 @@ import de.willuhn.jameica.gui.input.TextInput;
 import de.willuhn.jameica.gui.parts.ButtonArea;
 import de.willuhn.jameica.gui.util.Container;
 import de.willuhn.jameica.gui.util.SimpleContainer;
+import de.willuhn.jameica.redmine.DismissTimeEntryException;
 import de.willuhn.jameica.redmine.Plugin;
 import de.willuhn.jameica.redmine.service.CachingRedmineService;
 import de.willuhn.jameica.redmine.util.DurationFormatter;
 import de.willuhn.jameica.services.BeanService;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.jameica.system.OperationCanceledException;
+import de.willuhn.logging.Logger;
 import de.willuhn.util.ApplicationException;
 import de.willuhn.util.I18N;
 
@@ -81,6 +83,24 @@ public class TimeEntryCommitDialog extends AbstractDialog
         close();
       }
     },null,true,"ok.png");
+    b.addButton(i18n.tr("Erfasste Zeit verwerfen"), new Action()
+    {
+      public void handleAction(Object context) throws ApplicationException
+      {
+        boolean doit = false;
+        try
+        {
+          doit = (Application.getCallback().askUser(i18n.tr("Wollen Sie die erfasste Arbeitszeit wirklich verwerfen?")));
+        }
+        catch (Exception e)
+        {
+          Logger.error("unable to ask user",e);
+        }
+        
+        if (doit)
+          throw new DismissTimeEntryException(i18n.tr("Erfasste Arbeitszeit verworfen"));
+      }
+    },null,false,"user-trash-full.png");
     b.addButton(i18n.tr("Abbrechen"), new Action()
     {
       public void handleAction(Object context) throws ApplicationException
