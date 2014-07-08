@@ -7,10 +7,16 @@
 
 package de.willuhn.jameica.redmine.gui.dialogs;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
+import org.eclipse.swt.widgets.Event;
+import org.eclipse.swt.widgets.Listener;
 
 import com.taskadapter.redmineapi.bean.TimeEntry;
 import com.taskadapter.redmineapi.bean.TimeEntryActivity;
@@ -20,7 +26,10 @@ import de.willuhn.jameica.gui.dialogs.AbstractDialog;
 import de.willuhn.jameica.gui.input.LabelInput;
 import de.willuhn.jameica.gui.input.SelectInput;
 import de.willuhn.jameica.gui.input.TextInput;
+import de.willuhn.jameica.gui.parts.Button;
 import de.willuhn.jameica.gui.parts.ButtonArea;
+import de.willuhn.jameica.gui.parts.NotificationPanel;
+import de.willuhn.jameica.gui.parts.NotificationPanel.Type;
 import de.willuhn.jameica.gui.util.Container;
 import de.willuhn.jameica.gui.util.SimpleContainer;
 import de.willuhn.jameica.redmine.DismissTimeEntryException;
@@ -30,6 +39,7 @@ import de.willuhn.jameica.redmine.util.DurationFormatter;
 import de.willuhn.jameica.services.BeanService;
 import de.willuhn.jameica.system.Application;
 import de.willuhn.jameica.system.OperationCanceledException;
+import de.willuhn.logging.Level;
 import de.willuhn.logging.Logger;
 import de.willuhn.util.ApplicationException;
 import de.willuhn.util.I18N;
@@ -41,11 +51,17 @@ public class TimeEntryCommitDialog extends AbstractDialog
 {
   private final static I18N i18n = Application.getPluginLoader().getPlugin(Plugin.class).getResources().getI18N();
   
-  private final static int WINDOW_WIDTH = 400;
+  private final static DateFormat HF = new SimpleDateFormat("HH:mm");
+  
+  private final static int WINDOW_WIDTH = 450;
 
+  private NotificationPanel panel = null;
   private TimeEntry entry = null;
+  private LabelInput duration = null;
+  private TextInput started = null;
   private SelectInput activities = null;
   private TextInput comment = null;
+  private Button apply = null;
   
   /**
    * ct.
@@ -64,25 +80,17 @@ public class TimeEntryCommitDialog extends AbstractDialog
    */
   protected void paint(Composite parent) throws Exception
   {
+    this.getPanel().paint(parent);
     Container group = new SimpleContainer(parent);
     
-    LabelInput duration = new LabelInput(new DurationFormatter().format(this.entry));
-    duration.setName(i18n.tr("Erfasste Zeit"));
-    group.addInput(duration);
+    group.addInput(this.getDuration());
+    group.addInput(this.getStarted());
     group.addInput(this.getActivities());
     group.addInput(this.getComment());
 
     ButtonArea b = new ButtonArea();
-    b.addButton(i18n.tr("Übernehmen"), new Action()
-    {
-      public void handleAction(Object context) throws ApplicationException
-      {
-        TimeEntryActivity a = (TimeEntryActivity) getActivities().getValue();
-        entry.setActivityId(a.getId());
-        entry.setComment((String) getComment().getValue());
-        close();
-      }
-    },null,true,"ok.png");
+
+    b.addButton(this.getApplyButton());
     b.addButton(i18n.tr("Erfasste Zeit verwerfen"), new Action()
     {
       public void handleAction(Object context) throws ApplicationException
@@ -122,6 +130,72 @@ public class TimeEntryCommitDialog extends AbstractDialog
   protected Object getData() throws Exception
   {
     return this.entry;
+  }
+  
+  /**
+   * Liefert den Uebernehmen-Button.
+   * @return der Uebernehmen-Button.
+   */
+  private Button getApplyButton()
+  {
+    if (this.apply != null)
+      return this.apply;
+    
+    this.apply = new Button(i18n.tr("Übernehmen"), new Action()
+    {
+      public void handleAction(Object context) throws ApplicationException
+      {
+        if (validate(true))
+        {
+          TimeEntryActivity a = (TimeEntryActivity) getActivities().getValue();
+          entry.setActivityId(a.getId());
+          entry.setComment((String) getComment().getValue());
+          close();
+        }
+      }
+    },null,true,"ok.png");
+    
+    return this.apply;
+  }
+  
+  /**
+   * Liefert ein Eingabefeld fuer die Startzeit der Taetigkeit.
+   * Kann nachtraeglich noch geandert werden.
+   * @return Eingabefeld.
+   */
+  private TextInput getStarted()
+  {
+    if (this.started != null)
+      return this.started;
+    
+    this.started = new TextInput(HF.format(this.entry.getCreatedOn()),5);
+    this.started.setValidChars("0123456789:");
+    this.started.setMandatory(true);
+    this.started.setName(i18n.tr("Beginn der Zeiterfassung (hh:mm)"));
+    this.started.addListener(new Listener() {
+      
+      @Override
+      public void handleEvent(Event event)
+      {
+        getApplyButton().setEnabled(validate(false));
+      }
+    });
+    
+    return this.started;
+  }
+  
+  /**
+   * Liefert ein Label mit der erfassten Zeit.
+   * @return ein Label mit der erfassten Zeit.
+   */
+  private LabelInput getDuration()
+  {
+    if (this.duration != null)
+      return this.duration;
+    
+    this.duration = new LabelInput(new DurationFormatter().format(this.entry));
+    this.duration.setName(i18n.tr("Erfasste Zeit"));
+    return this.duration;
   }
   
   /**
@@ -169,6 +243,58 @@ public class TimeEntryCommitDialog extends AbstractDialog
     return this.comment;
   }
 
+  /**
+   * Liefert ein Panel zur Anzeige von Hinweisen/Fehlern.
+   * @return ein Panel zur Anzeige von Hinweisen/Fehlern.
+   */
+  private NotificationPanel getPanel()
+  {
+    if (this.panel != null)
+      return this.panel;
+    
+    this.panel = new NotificationPanel();
+    return this.panel;
+  }
+  
+  /**
+   * Validiert die aktuellen Eingaben.
+   * @param apply true, wenn die Daten in den TimeEntry uebernommen werden sollen.
+   * @return true, wenn die Validierung ok ist.
+   */
+  private boolean validate(boolean apply)
+  {
+    try
+    {
+      // 1. Start-Zeit berechnen
+      Date dt = HF.parse((String)this.getStarted().getValue());
+      Calendar cal = Calendar.getInstance();
+      cal.setTime(dt);
+      
+      Calendar newStart = Calendar.getInstance();
+      newStart.setTime(this.entry.getCreatedOn());
+      newStart.set(Calendar.HOUR_OF_DAY,cal.get(Calendar.HOUR_OF_DAY));
+      newStart.set(Calendar.MINUTE,cal.get(Calendar.MINUTE));
+
+      Date started = newStart.getTime();
+      int minutes = (int) (System.currentTimeMillis() - started.getTime()) / 1000 / 60;
+
+      // 2. Bisherige Arbeitszeit basierend darauf aktualisieren
+      this.getDuration().setValue(new DurationFormatter().format(minutes));
+      
+      if (apply)
+      {
+        this.entry.setCreatedOn(started);
+      }
+      return true;
+    }
+    catch (Exception e)
+    {
+      Logger.write(Level.DEBUG,"invalid start time",e);
+      this.getPanel().setText(Type.ERROR,i18n.tr("Bitte geben Sie eine gültige Uhrzeit im Format hh:mm ein"));
+      this.getStarted().focus();
+      return false;
+    }
+  }
 }
 
 
