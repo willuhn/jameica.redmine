@@ -46,6 +46,42 @@ public class Settings
   }
   
   /**
+   * Liefert true, wenn nur die Issues angezeigt werden sollen, die mir zugewiesen sind.
+   * @return true, wenn nur die Issues angezeigt werden sollen, die mir zugewiesen sind.
+   */
+  public boolean getOnlyOwnIssues()
+  {
+    return this.getSettings().getBoolean("redmine.issues.own",true);
+  }
+  
+  /**
+   * Legt fest, ob nur die Issues angezeigt werden sollen, die mir zugewiesen sind.
+   * @param b true, wenn nur die Issues angezeigt werden sollen, die mir zugewiesen sind.
+   */
+  public void setOnlyOwnIssues(boolean b)
+  {
+    this.getSettings().setAttribute("redmine.issues.own",b);
+  }
+
+  /**
+   * Liefert true, wenn Issues angezeigt werden sollen, die niemandem zugewiesen sind.
+   * @return true, wenn Issues angezeigt werden sollen, die mir zugewiesen sind.
+   */
+  public boolean getUnassignedIssues()
+  {
+    return this.getSettings().getBoolean("redmine.issues.unassigned",true);
+  }
+  
+  /**
+   * Legt fest, ob Issues angezeigt werden sollen, die niemandem zugewiesen sind.
+   * @param b true, wenn Issues angezeigt werden sollen, die niemandem zugewiesen sind.
+   */
+  public void setUnassignedIssues(boolean b)
+  {
+    this.getSettings().setAttribute("redmine.issues.unassigned",b);
+  }
+
+  /**
    * Liefert den API-Key der Redmine-Installation.
    * @return der API-Key der Redmine-Installation.
    * @throws ApplicationException

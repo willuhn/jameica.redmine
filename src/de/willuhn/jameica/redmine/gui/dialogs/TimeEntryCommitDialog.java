@@ -23,6 +23,7 @@ import com.taskadapter.redmineapi.bean.TimeEntryActivity;
 
 import de.willuhn.jameica.gui.Action;
 import de.willuhn.jameica.gui.dialogs.AbstractDialog;
+import de.willuhn.jameica.gui.input.DateInput;
 import de.willuhn.jameica.gui.input.LabelInput;
 import de.willuhn.jameica.gui.input.SelectInput;
 import de.willuhn.jameica.gui.input.TextInput;
@@ -58,6 +59,7 @@ public class TimeEntryCommitDialog extends AbstractDialog
   private NotificationPanel panel = null;
   private TimeEntry entry = null;
   private LabelInput duration = null;
+  private DateInput date = null;
   private TextInput started = null;
   private SelectInput activities = null;
   private TextInput comment = null;
@@ -83,8 +85,9 @@ public class TimeEntryCommitDialog extends AbstractDialog
     this.getPanel().paint(parent);
     Container group = new SimpleContainer(parent);
     
-    group.addInput(this.getDuration());
+    group.addInput(this.getDate());
     group.addInput(this.getStarted());
+    group.addInput(this.getDuration());
     group.addInput(this.getActivities());
     group.addInput(this.getComment());
 
@@ -183,7 +186,32 @@ public class TimeEntryCommitDialog extends AbstractDialog
     
     return this.started;
   }
-  
+
+  /**
+   * Liefert ein Eingabefeld fuer das Datum der Taetigkeit.
+   * Kann nachtraeglich noch geandert werden.
+   * @return Eingabefeld.
+   */
+  private DateInput getDate()
+  {
+    if (this.date != null)
+      return this.date;
+    
+    this.date = new DateInput(this.entry.getCreatedOn());
+    this.date.setMandatory(true);
+    this.date.setName(i18n.tr("Datum"));
+    this.date.addListener(new Listener() {
+      
+      @Override
+      public void handleEvent(Event event)
+      {
+        getApplyButton().setEnabled(validate(false));
+      }
+    });
+    
+    return this.date;
+  }
+
   /**
    * Liefert ein Label mit der erfassten Zeit.
    * @return ein Label mit der erfassten Zeit.
@@ -270,8 +298,9 @@ public class TimeEntryCommitDialog extends AbstractDialog
       Calendar cal = Calendar.getInstance();
       cal.setTime(dt);
       
+      Date day = (Date) this.getDate().getValue();
       Calendar newStart = Calendar.getInstance();
-      newStart.setTime(this.entry.getCreatedOn());
+      newStart.setTime(day != null ? day : this.entry.getCreatedOn());
       newStart.set(Calendar.HOUR_OF_DAY,cal.get(Calendar.HOUR_OF_DAY));
       newStart.set(Calendar.MINUTE,cal.get(Calendar.MINUTE));
 

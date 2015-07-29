@@ -174,8 +174,7 @@ public class AbstractRedmineService
     try
     {
       Logger.info("fetching issues for project " + project.getIdentifier());
-      List<Issue> issues = this.getManager().getIssues(project.getIdentifier(),null);
-      return issues;
+      return this.getManager().getIssues(project.getIdentifier(),null);
     }
     catch (NotAuthorizedException e)
     {

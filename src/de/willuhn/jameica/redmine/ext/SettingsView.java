@@ -14,6 +14,7 @@ import org.eclipse.swt.events.DisposeListener;
 
 import de.willuhn.jameica.gui.extension.Extendable;
 import de.willuhn.jameica.gui.extension.Extension;
+import de.willuhn.jameica.gui.input.CheckboxInput;
 import de.willuhn.jameica.gui.input.SpinnerInput;
 import de.willuhn.jameica.gui.input.TextInput;
 import de.willuhn.jameica.gui.internal.views.Settings;
@@ -41,9 +42,11 @@ public class SettingsView implements Extension
 
   private MessageConsumer mc = null;
 
-  private TextInput url         = null;
-  private TextInput apiKey      = null;
-  private SpinnerInput interval = null;
+  private CheckboxInput own        = null;
+  private CheckboxInput unassigned = null;
+  private TextInput url            = null;
+  private TextInput apiKey         = null;
+  private SpinnerInput interval    = null;
   
   /**
    * @see de.willuhn.jameica.gui.extension.Extension#extend(de.willuhn.jameica.gui.extension.Extendable)
@@ -108,6 +111,8 @@ public class SettingsView implements Extension
       tab.addInput(this.getApiKey());
       tab.addHeadline(i18n.tr("Verbindungseinstellungen"));
       tab.addInput(this.getInterval());
+      tab.addInput(this.getOwn());
+      tab.addInput(this.getUnassigned());
       tab.addSeparator();
       
       InfoPanel panel = new InfoPanel();
@@ -144,7 +149,35 @@ public class SettingsView implements Extension
     this.url.setMandatory(true);
     return this.url;
   }
+  
+  /**
+   * Checkbox, zum Konfigurieren, ob nur die eigenen Aufgaben angezeigt werden sollen.
+   * @return Checkbox.
+   */
+  private CheckboxInput getOwn()
+  {
+    if (this.own != null)
+      return this.own;
+    
+    this.own = new CheckboxInput(this.settings.getOnlyOwnIssues());
+    this.own.setName(i18n.tr("Nur Aufgaben anzeigen, die mir zugewiesen sind"));
+    return this.own;
+  }
 
+  /**
+   * Checkbox, zum Konfigurieren, ob Aufgaben angezeigt werden sollen, die niemandem zugewiesen sind.
+   * @return Checkbox.
+   */
+  private CheckboxInput getUnassigned()
+  {
+    if (this.unassigned != null)
+      return this.unassigned;
+    
+    this.unassigned = new CheckboxInput(this.settings.getUnassignedIssues());
+    this.unassigned.setName(i18n.tr("Aufgaben anzeigen, die niemandem zugewiesen sind"));
+    return this.unassigned;
+  }
+  
   /**
    * Liefert das Eingabefeld fuer den API-Key.
    * @return Eingabefeld.
@@ -179,13 +212,17 @@ public class SettingsView implements Extension
   {
     try
     {
-      String url    = (String) this.getUrl().getValue();
-      String apiKey = (String) this.getApiKey().getValue();
+      String url    = (String)  this.getUrl().getValue();
+      String apiKey = (String)  this.getApiKey().getValue();
       Integer i     = (Integer) this.getInterval().getValue();
+      Boolean b     = (Boolean) this.getOwn().getValue();
+      Boolean b2     = (Boolean) this.getUnassigned().getValue();
 
       this.settings.setUrl(url);
       this.settings.setApiKey(apiKey);
       this.settings.setCacheReloadInterval(i.intValue());
+      this.settings.setOnlyOwnIssues(b.booleanValue());
+      this.settings.setUnassignedIssues(b2.booleanValue());
     }
     catch (ApplicationException ae)
     {
