@@ -56,6 +56,6 @@ public class DurationFormatter implements Formatter
     String delim = ":";
     if (minutes < 10)
       delim = ":0";
-    return hours + delim + minutes;
+    return hours + delim + minutes + " h";
   }
 }
