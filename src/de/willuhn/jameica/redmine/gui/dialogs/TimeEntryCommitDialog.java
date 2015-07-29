@@ -17,6 +17,7 @@ import org.eclipse.swt.SWT;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Listener;
+import org.eclipse.swt.widgets.Shell;
 
 import com.taskadapter.redmineapi.bean.TimeEntry;
 import com.taskadapter.redmineapi.bean.TimeEntryActivity;
@@ -32,6 +33,7 @@ import de.willuhn.jameica.gui.parts.ButtonArea;
 import de.willuhn.jameica.gui.parts.NotificationPanel;
 import de.willuhn.jameica.gui.parts.NotificationPanel.Type;
 import de.willuhn.jameica.gui.util.Container;
+import de.willuhn.jameica.gui.util.SWTUtil;
 import de.willuhn.jameica.gui.util.SimpleContainer;
 import de.willuhn.jameica.redmine.DismissTimeEntryException;
 import de.willuhn.jameica.redmine.Plugin;
@@ -76,7 +78,20 @@ public class TimeEntryCommitDialog extends AbstractDialog
     this.setSize(WINDOW_WIDTH,SWT.DEFAULT);
     this.entry = entry;
   }
-
+  
+  /**
+   * @see de.willuhn.jameica.gui.dialogs.AbstractDialog#createShell(org.eclipse.swt.widgets.Shell, int)
+   */
+  @Override
+  protected Shell createShell(Shell parent, int flags)
+  {
+    // Wir erzeugen eine Shell ohne Parent, damit das Fenster dediziert angezeigt werden kann,
+    // ohne dass das Hauptfenster erscheint
+    Shell shell = super.createShell(null, flags);
+    shell.setImage(SWTUtil.getImage("clock.png"));
+    return shell;
+  }
+  
   /**
    * @see de.willuhn.jameica.gui.dialogs.AbstractDialog#paint(org.eclipse.swt.widgets.Composite)
    */
