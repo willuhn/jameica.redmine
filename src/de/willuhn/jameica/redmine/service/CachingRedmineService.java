@@ -80,12 +80,12 @@ public class CachingRedmineService extends AbstractRedmineService
       {
         // Nur die direkt dem Projekt zugeordneten Aufgaben. Nicht die von Unter-Projekten.
         // Die kommen ja in einem extra Ordner.
-        Project p = i.getProject();
-        if (!p.equals(project))
+        Integer p = i.getProjectId();
+        if (!p.equals(project.getId()))
           continue;
 
         // Keinem zugeordnet - sollen die geliefert werden?
-        User assignee = i.getAssignee();
+        Integer assignee = i.getAssigneeId();
         if (assignee == null)
         {
           if (ua) // Nur hinzufuegen, wenn gewuenscht

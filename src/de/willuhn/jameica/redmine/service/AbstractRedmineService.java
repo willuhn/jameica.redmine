@@ -23,12 +23,14 @@ import com.taskadapter.redmineapi.NotFoundException;
 import com.taskadapter.redmineapi.RedmineAuthenticationException;
 import com.taskadapter.redmineapi.RedmineException;
 import com.taskadapter.redmineapi.RedmineManager;
+import com.taskadapter.redmineapi.RedmineManagerFactory;
 import com.taskadapter.redmineapi.RedmineTransportException;
 import com.taskadapter.redmineapi.bean.Issue;
 import com.taskadapter.redmineapi.bean.Membership;
 import com.taskadapter.redmineapi.bean.Project;
 import com.taskadapter.redmineapi.bean.TimeEntry;
 import com.taskadapter.redmineapi.bean.TimeEntryActivity;
+import com.taskadapter.redmineapi.bean.TimeEntryFactory;
 import com.taskadapter.redmineapi.bean.User;
 
 import de.willuhn.jameica.redmine.Plugin;
@@ -71,7 +73,7 @@ public class AbstractRedmineService
       
       Logger.info("opening connection to: " + url);
       Logger.debug("using API key: " + apiKey);
-      this.manager = new RedmineManager(url,apiKey);
+      this.manager = RedmineManagerFactory.createWithApiKey(url,apiKey);
     }
     
     return this.manager;
@@ -101,7 +103,7 @@ public class AbstractRedmineService
       try
       {
         Logger.info("fetching current currentUser");
-        this.currentUser = this.getManager().getCurrentUser();
+        this.currentUser = this.getManager().getUserManager().getCurrentUser();
       }
       catch (RedmineException re)
       {
@@ -174,7 +176,7 @@ public class AbstractRedmineService
     try
     {
       Logger.info("fetching issues for project " + project.getIdentifier());
-      return this.getManager().getIssues(project.getIdentifier(),null);
+      return this.getManager().getIssueManager().getIssues(project.getIdentifier(),null);
     }
     catch (NotAuthorizedException e)
     {
@@ -199,7 +201,7 @@ public class AbstractRedmineService
     try
     {
       Logger.info("fetching time-entry activities");
-      List<TimeEntryActivity> activities = this.getManager().getTimeEntryActivities();
+      List<TimeEntryActivity> activities = this.getManager().getTimeEntryManager().getTimeEntryActivities();
       return activities;
     }
     catch (RedmineException re)
@@ -233,8 +235,8 @@ public class AbstractRedmineService
 
     Date now = new Date();
     
-    this.currentEntry = new TimeEntry();
-    this.currentEntry.setProjectId(issue.getProject().getId());
+    this.currentEntry = TimeEntryFactory.create();
+    this.currentEntry.setProjectId(issue.getProjectId());
     this.currentEntry.setIssueId(issue.getId());
     this.currentEntry.setComment("#" + issue.getId() + " " + issue.getSubject());
     this.currentEntry.setCreatedOn(now);
@@ -268,7 +270,7 @@ public class AbstractRedmineService
       Logger.info("committing current time entry for issue #" + this.currentEntry.getIssueId() + ", used time: " + minutes + " minutes (" + hours + " hours)");
 
       // 2. Speichern
-      this.getManager().createTimeEntry(this.currentEntry);
+      this.getManager().getTimeEntryManager().createTimeEntry(this.currentEntry);
       Logger.info("time entry for issue #" + this.currentEntry.getIssueId() + " committed");
       this.currentEntry = null; // Nicht im finally damit das nur passiert, wenn das commit geklappt hat
     }
@@ -299,15 +301,15 @@ public class AbstractRedmineService
       User user = this.getCurrentUser();
       
       Logger.info("fetching project list");
-      List<Project> projects = manager.getProjects();
+      List<Project> projects = manager.getProjectManager().getProjects();
       List<Project> filtered = new ArrayList<Project>();
       for (Project p:projects)
       {
-        List<Membership> members = manager.getMemberships(p);
+        List<Membership> members = manager.getMembershipManager().getMemberships(p.getId());
         for (Membership m:members)
         {
-          User u = m.getUser();
-          if (u == null || u.equals(user))
+          Integer u = m.getUserId();
+          if (u == null || u.equals(user.getId()))
           {
             filtered.add(p);
             break;

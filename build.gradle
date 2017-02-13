@@ -15,8 +15,8 @@ repositories {
 }
 
 dependencies {
-  compile 'com.taskadapter:redmine-java-api:1.24'
-  compile 'org.slf4j:slf4j-jcl:1.7.7'
+  compile 'com.taskadapter:redmine-java-api:+'
+  compile 'org.slf4j:slf4j-jcl:+'
 }
 
 task download(type: Copy) {
